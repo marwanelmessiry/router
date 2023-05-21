@@ -1,0 +1,81 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+
+entity fifo is
+port(
+reset, rclk, wclk, rreq, wreq: in std_logic;
+datain: in std_logic_vector (7 downto 0);
+dataout: out std_logic_vector (7 downto 0);
+empty, full: out std_logic --buffer?
+);
+end entity;
+
+--COMPONENTS RAM W CONTROLLER
+architecture behav of fifo is
+
+component fifo_cont is
+port(
+reset, rclk, wclk, r_req, w_req: in std_logic;
+w_valid, r_valid: out std_logic;
+wr_ptr, rd_ptr: out std_logic_vector (2 downto 0); --blash buffer?
+empty, full: out std_logic
+);
+end component;
+
+component ram is
+port  (
+d_in: in std_logic_vector (7 downto 0);
+wea, rea: in std_logic;
+clk_a, clk_b: in std_logic;
+addr_a, addr_b: in std_logic_vector (2 downto 0);
+d_out: out std_logic_vector (7 downto 0)
+);
+end component;
+
+
+signal temp_addraW, temp_addrbR : std_logic_vector (2 downto 0); --QUESTION
+signal temp_wea, temp_rea : std_logic;
+signal temp_wptr, temp_rptr : std_logic_vector (2 downto 0);
+
+begin
+
+fiforam: ram port map (d_in => datain,
+wea => temp_wea,
+rea => temp_rea,
+clk_a => wclk,
+clk_b => rclk,
+addr_a => temp_addraW,
+addr_b => temp_addrbR,
+d_out => dataout);
+
+fifocont: fifo_cont port map (reset => reset, --3ADY?
+rclk => rclk,
+wclk => wclk,
+r_req => rreq,
+w_req => wreq,
+w_valid => temp_wea,
+r_valid => temp_rea,
+wr_ptr => temp_addraW, --map to? not address --el counter hwa l bygen l address?
+rd_ptr => temp_addrbR, --map to? not address
+empty => empty,
+full => full);
+
+--u3: gray_count port map (clk => wclk, --read walla write? 23ml etnen?
+--reset => reset,
+--En => temp_wea,
+--count_out => temp_countoutW);
+
+--u4: gray_count port map (clk => rclk, --read walla write? 23ml etnen?
+--reset => reset,
+--En => temp_rea,
+--count_out => temp_countoutR);
+
+--u5: gray_to_bin port map (gray_in => temp_countoutW,
+--bin_out => temp_addraW);
+
+--u6: gray_to_bin port map (gray_in => temp_countoutR,
+--bin_out => temp_addrbR);
+
+end architecture;

@@ -1,0 +1,53 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+use ieee.std_logic_unsigned.all;
+USE ieee.numeric_std.ALL;
+
+ENTITY gray_count IS
+  PORT (clk, reset, En: IN std_logic;
+        count_out: OUT std_logic_vector (3 DOWNTO 0));
+END entity;
+
+ARCHITECTURE behav OF gray_count IS
+  SIGNAL Currstate, Nextstate, hold, next_hold: std_logic_vector (3 DOWNTO 0);
+BEGIN
+
+ PROCESS (clk, reset)
+  BEGIN
+      IF (reset = '1') THEN
+        hold <= "0000";
+
+    elsIF (clk = '1' AND clk'EVENT) THEN
+--      IF (reset = '1') THEN
+--        Currstate <= (OTHERS =>'0');
+      IF (En = '1') THEN
+--        Currstate <= Nextstate;
+case hold is
+when "0000" => hold<="0001";
+when "0001" => hold<="0011";
+when "0011" => hold<="0010";
+when "0010" => hold<="0110";
+when "0110" => hold<="0111";
+when "0111" => hold<="0101";
+when "0101" => hold<="0100";
+when "0100" => hold<="1100";
+when "1100" => hold<="1101";
+when "1101" => hold<="1111";
+when "1111" => hold<="1110";
+when "1110" => hold<="1010";
+when "1010" => hold<="1011";
+when "1011" => hold<="1001";
+when "1001" => hold<="1000";
+when others => hold<="0000";
+end case;
+      END IF;
+    END IF;
+  END PROCESS;
+
+--  hold <= Currstate XOR ('0' & hold(3 DOWNTO 1));
+--  next_hold <= std_logic_vector(unsigned(hold) + 1);
+--  Nextstate <= next_hold XOR ('0' & next_hold(3 DOWNTO 1)); 
+--  count_out <= Currstate;
+count_out<=hold;
+
+END architecture;

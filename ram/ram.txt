@@ -1,0 +1,38 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+entity ram is
+port(d_in: in std_logic_vector (7 downto 0);
+wea, rea: in std_logic;
+clk_a, clk_b: in std_logic;
+addr_a, addr_b: in std_logic_vector (2 downto 0);
+d_out: out std_logic_vector (7 downto 0)
+);
+end entity;
+
+architecture behav of ram is
+
+type ram_type is array (7 downto 0) of std_logic_vector(7 downto 0);
+signal mem: ram_type;
+
+begin
+
+process(clk_a) begin --SENSITIVITY LIST --walla two processes?
+if clk_a='1' and clk_a'event then
+if wea='1' then
+mem(to_integer(unsigned(addr_a)))<=d_in;
+end if; end if;
+end process;
+
+process(clk_b) begin
+if clk_b='1' and clk_b'event then
+
+if rea='1' then
+d_out<=mem(to_integer(unsigned(addr_b))); --walla fi two arrays?
+end if; end if;
+
+end process;
+
+end architecture;

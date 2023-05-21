@@ -1,0 +1,483 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+
+entity router is
+port(
+datai1, datai2, datai3, datai4: in std_logic_vector (7 downto 0);
+wr1, wr2, wr3, wr4: in std_logic;
+datao1, datao2, datao3, datao4: out std_logic_vector (7 downto 0);
+rst, wclock, rclock: in std_logic
+);
+end entity;
+
+--fifo w round robin w demux w reg
+--4 regs each for a datai
+
+architecture behav of router is
+
+component reg is
+port(data_in: in std_logic_vector (7 downto 0);
+clk, clk_en, reset: in std_logic;
+data_out: out std_logic_vector (7 downto 0)
+);
+end component;
+
+component demux is
+port(data_in: in std_logic_vector (7 downto 0);
+sel: in std_logic_vector (1 downto 0);
+en: in std_logic;
+data_out1, data_out2, data_out3, data_out4: out std_logic_vector (7 downto 0)
+);
+end component;
+
+component round_robin is
+port( din1 : in  std_logic_vector(7 downto 0);
+din2 : in  std_logic_vector(7 downto 0);
+din3 : in  std_logic_vector(7 downto 0);
+din4 : in  std_logic_vector(7 downto 0);
+dout : out std_logic_vector(7 downto 0);
+clk : in  std_logic);
+end component;
+
+component fifo is
+port( reset, rclk, wclk, rreq, wreq: in std_logic;
+datain: in std_logic_vector (7 downto 0);
+dataout: out std_logic_vector (7 downto 0);
+empty, full: out std_logic --buffer?
+);
+end component;
+
+signal reg1out_sig, reg2out_sig, reg3out_sig, reg4out_sig,
+OB1_FIFO1_sig, OB1_FIFO2_sig, OB1_FIFO3_sig, OB1_FIFO4_sig,
+OB2_FIFO1_sig, OB2_FIFO2_sig, OB2_FIFO3_sig, OB2_FIFO4_sig,
+OB3_FIFO1_sig, OB3_FIFO2_sig, OB3_FIFO3_sig, OB3_FIFO4_sig,
+OB4_FIFO1_sig, OB4_FIFO2_sig, OB4_FIFO3_sig, OB4_FIFO4_sig,
+RR1_in1_sig, RR1_in2_sig, RR1_in3_sig, RR1_in4_sig,
+RR2_in1_sig, RR2_in2_sig, RR2_in3_sig, RR2_in4_sig,
+RR3_in1_sig, RR3_in2_sig, RR3_in3_sig, RR3_in4_sig,
+RR4_in1_sig, RR4_in2_sig, RR4_in3_sig, RR4_in4_sig,
+RR1_OUT_sig, RR2_OUT_sig, RR3_OUT_sig, RR4_OUT_sig : std_logic_vector (7 downto 0);
+signal rreq1, rreq2, rreq3, rreq4, wreq11, wreq12, wreq13, wreq14,
+wreq21, wreq22, wreq23, wreq24, wreq31, wreq32, wreq33, wreq34, wreq41, wreq42, wreq43, wreq44,
+OB1_en, OB2_en, OB3_en, OB4_en,
+empty11_flag, full11_flag,
+empty12_flag, full12_flag,
+empty13_flag, full13_flag,
+empty14_flag, full14_flag,
+empty21_flag, full21_flag,
+empty22_flag, full22_flag,
+empty23_flag, full23_flag,
+empty24_flag, full24_flag,
+empty31_flag, full31_flag,
+empty32_flag, full32_flag,
+empty33_flag, full33_flag,
+empty34_flag, full34_flag,
+empty41_flag, full41_flag,
+empty42_flag, full42_flag,
+empty43_flag, full43_flag,
+empty44_flag, full44_flag : std_logic;
+
+type state is (s0,s1,s2,s3);       -- State declaration
+signal present_state: state:= s1;
+signal next_state : state:=s1;  -- State container
+
+
+begin
+
+IB1: reg port map (data_in=>datai1,
+clk => wclock,
+clk_en=> wr1, --????????????????????
+reset => rst,
+data_out => reg1out_sig);
+
+IB2: reg port map (data_in=>datai2,
+clk => wclock,
+clk_en=> wr2,
+reset => rst,
+data_out => reg2out_sig);
+
+IB3: reg port map (data_in=>datai3,
+clk => wclock,
+clk_en=> wr3,
+reset => rst,
+data_out => reg3out_sig);
+
+IB4: reg port map (data_in=>datai4,
+clk => wclock,
+clk_en=> wr4,
+reset => rst,
+data_out => reg4out_sig);
+--------
+
+demux1: demux port map (data_in => reg1out_sig,
+sel => reg1out_sig (1 downto 0),
+en => wr1,
+data_out1 => OB1_FIFO1_sig,
+data_out2 => OB2_FIFO1_sig,
+data_out3 => OB3_FIFO1_sig,
+data_out4 => OB4_FIFO1_sig
+);
+
+demux2: demux port map (data_in => reg2out_sig,
+sel => reg2out_sig (1 downto 0),
+en => wr2,
+data_out1 => OB1_FIFO2_sig,
+data_out2 => OB2_FIFO2_sig,
+data_out3 => OB3_FIFO2_sig,
+data_out4 => OB4_FIFO2_sig
+);
+
+demux3: demux port map (data_in => reg3out_sig,
+sel => reg3out_sig (1 downto 0),
+en => wr3,
+data_out1 => OB1_FIFO3_sig,
+data_out2 => OB2_FIFO3_sig,
+data_out3 => OB3_FIFO3_sig,
+data_out4 => OB4_FIFO3_sig
+);
+
+demux4: demux port map (data_in => reg4out_sig,
+sel => reg4out_sig (1 downto 0),
+en => wr4,
+data_out1 => OB1_FIFO4_sig,
+data_out2 => OB2_FIFO4_sig,
+data_out3 => OB3_FIFO4_sig,
+data_out4 => OB4_FIFO4_sig
+);
+----
+--OB1 queues
+OB1_FIFO1: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq1,
+wreq => wreq11,
+datain => OB1_FIFO1_sig,
+dataout => RR1_in1_sig,
+empty => empty11_flag,
+full => full11_flag
+);
+
+OB1_FIFO2: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq2,
+wreq => wreq12,
+datain => OB1_FIFO2_sig,
+dataout => RR1_in2_sig,
+empty => empty12_flag,
+full => full12_flag
+);
+
+OB1_FIFO3: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq3,
+wreq => wreq13,
+datain => OB1_FIFO3_sig,
+dataout => RR1_in3_sig,
+empty => empty13_flag,
+full => full13_flag
+);
+
+OB1_FIFO4: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq4,
+wreq => wreq14,
+datain => OB1_FIFO4_sig,
+dataout => RR1_in4_sig,
+empty => empty14_flag,
+full => full14_flag
+);
+
+----
+--OB2 queues
+
+OB2_FIFO1: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq1,
+wreq => wreq21,
+datain => OB2_FIFO1_sig,
+dataout => RR2_in1_sig,
+empty => empty21_flag,
+full => full21_flag
+);
+
+OB2_FIFO2: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq2,
+wreq => wreq22,
+datain => OB2_FIFO2_sig,
+dataout => RR2_in2_sig,
+empty => empty22_flag,
+full => full22_flag
+);
+
+OB2_FIFO3: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq3,
+wreq => wreq23,
+datain => OB2_FIFO3_sig,
+dataout => RR2_in3_sig,
+empty => empty23_flag,
+full => full23_flag
+);
+
+OB2_FIFO4: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq4,
+wreq => wreq24,
+datain => OB2_FIFO4_sig,
+dataout => RR2_in4_sig,
+empty => empty24_flag,
+full => full24_flag
+);
+----
+--OB3 queues
+
+OB3_FIFO1: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq1,
+wreq => wreq31,
+datain => OB3_FIFO1_sig,
+dataout => RR3_in1_sig,
+empty => empty31_flag,
+full => full31_flag
+);
+
+OB3_FIFO2: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq2,
+wreq => wreq32,
+datain => OB3_FIFO2_sig,
+dataout => RR3_in2_sig,
+empty => empty32_flag,
+full => full32_flag
+);
+
+OB3_FIFO3: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq3,
+wreq => wreq33,
+datain => OB3_FIFO3_sig,
+dataout => RR3_in3_sig,
+empty => empty33_flag,
+full => full33_flag
+);
+
+OB3_FIFO4: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq4,
+wreq => wreq34,
+datain => OB3_FIFO4_sig,
+dataout => RR3_in4_sig,
+empty => empty34_flag,
+full => full34_flag
+);
+-----
+--OB4 queues
+
+OB4_FIFO1: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq1,
+wreq => wreq41,
+datain => OB4_FIFO1_sig,
+dataout => RR4_in1_sig,
+empty => empty41_flag,
+full => full41_flag
+);
+
+OB4_FIFO2: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq2,
+wreq => wreq42,
+datain => OB4_FIFO2_sig,
+dataout => RR4_in2_sig,
+empty => empty42_flag,
+full => full42_flag
+);
+
+OB4_FIFO3: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq3,
+wreq => wreq43,
+datain => OB4_FIFO3_sig,
+dataout => RR4_in3_sig,
+empty => empty43_flag,
+full => full43_flag
+);
+
+OB4_FIFO4: fifo port map (reset => rst,
+rclk => rclock,
+wclk => wclock,
+rreq => rreq4,
+wreq => wreq44,
+datain => OB4_FIFO4_sig,
+dataout => RR4_in4_sig,
+empty => empty44_flag,
+full => full44_flag
+);
+----
+
+OB1_RR: round_robin port map (din1 => RR1_in1_sig,
+din2=> RR1_in2_sig,
+din3=> RR1_in3_sig,
+din4=> RR1_in4_sig,
+dout => RR1_OUT_sig,
+clk=>rclock
+);
+
+OB2_RR: round_robin port map (din1 => RR2_in1_sig,
+din2=> RR2_in2_sig,
+din3=> RR2_in3_sig,
+din4=> RR2_in4_sig,
+dout => RR2_OUT_sig,
+clk=>rclock
+);
+
+OB3_RR: round_robin port map (din1 => RR3_in1_sig,
+din2=> RR3_in2_sig,
+din3=> RR3_in3_sig,
+din4=> RR3_in4_sig,
+dout => RR3_OUT_sig,
+clk=>rclock
+);
+
+OB4_RR: round_robin port map (din1 => RR4_in1_sig,
+din2=> RR4_in2_sig,
+din3=> RR4_in3_sig,
+din4=> RR4_in4_sig,
+dout => RR4_OUT_sig,
+clk=>rclock
+);
+----
+
+OB1: reg port map (data_in=>RR1_OUT_sig,
+clk => rclock,
+clk_en=> OB1_en,
+reset => rst,
+data_out => datao1);
+
+OB2: reg port map (data_in=>RR2_OUT_sig,
+clk => rclock,
+clk_en=> OB2_en,
+reset => rst,
+data_out => datao2);
+
+OB3: reg port map (data_in=>RR3_OUT_sig,
+clk => rclock,
+clk_en=> OB3_en,
+reset => rst,
+data_out => datao3);
+
+OB4: reg port map (data_in=>RR4_OUT_sig,
+clk => rclock,
+clk_en=> OB4_en,
+reset => rst,
+data_out => datao4);
+
+
+  priority2: process (present_state)
+  begin  -- process priority
+
+    case present_state is
+
+      when s0 =>
+          rreq1<='1'; rreq2<='0'; rreq3<='0'; rreq4<='0';
+	  OB1_en<= '1'; OB2_en<= '1'; OB3_en<= '1'; OB4_en<= '1';
+          next_state<=s1;
+
+        when s1 =>
+          rreq1<='0'; rreq2<='1'; rreq3<='0'; rreq4<='0';
+	  OB1_en<= '1'; OB2_en<= '1'; OB3_en<= '1'; OB4_en<= '1';
+	  next_state<=s2;
+
+        when s2 =>
+          rreq1<='0'; rreq2<='0'; rreq3<='1'; rreq4<='0';
+	  OB1_en<= '1'; OB2_en<= '1'; OB3_en<='1'; OB4_en<='1';
+          next_state<=s3;
+
+        when s3 =>
+          rreq1<='0'; rreq2<='0'; rreq3<='0'; rreq4<='1';
+	  OB1_en<= '1'; OB2_en<= '1'; OB3_en<='1'; OB4_en<= '1';
+          next_state<=s0;
+        
+    end case;
+  end process priority2;
+
+  State_assignment: process (rclock)
+  begin  -- process State_assignment
+    if rclock'event and rclock = '1' then  -- rising clock edge
+      present_state<=next_state;
+    end if;
+  end process State_assignment;
+
+--reset??????????????????????????
+
+process (reg1out_sig, reg2out_sig, reg3out_sig, reg4out_sig, wr1, wr2, wr3, wr4) begin
+
+if wr1='1' then
+
+if reg1out_sig (1 downto 0) = "00" then
+wreq11<='1'; wreq21<='0'; wreq31<='0'; wreq41<='0';
+elsif reg1out_sig (1 downto 0) = "01" then
+wreq11<='0'; wreq21<='1'; wreq31<='0'; wreq41<='0';
+elsif reg1out_sig (1 downto 0) = "10" then
+wreq11<='0'; wreq21<='0'; wreq31<='1'; wreq41<='0';
+elsif reg1out_sig (1 downto 0) = "11" then --walla else?
+wreq11<='0'; wreq21<='0'; wreq31<='0'; wreq41<='1';
+end if;
+end if;
+if wr2='1' then
+if reg2out_sig (1 downto 0) = "00" then
+wreq12<='1'; wreq22<='0'; wreq32<='0'; wreq42<='0';
+elsif reg2out_sig (1 downto 0) = "01" then
+wreq12<='0'; wreq22<='1'; wreq32<='0'; wreq42<='0';
+elsif reg2out_sig (1 downto 0) = "10" then
+wreq12<='0'; wreq22<='0'; wreq32<='1'; wreq42<='0';
+elsif reg2out_sig (1 downto 0) = "11" then --walla else?
+wreq12<='0'; wreq22<='0'; wreq32<='0'; wreq42<='1';
+end if; end if;
+
+if wr3='1' then
+if reg3out_sig (1 downto 0) = "00" then
+wreq13<='1'; wreq23<='0'; wreq33<='0'; wreq43<='0';
+elsif reg3out_sig (1 downto 0) = "01" then
+wreq13<='0'; wreq23<='1'; wreq33<='0'; wreq43<='0';
+elsif reg3out_sig (1 downto 0) = "10" then
+wreq13<='0'; wreq23<='0'; wreq33<='1'; wreq43<='0';
+elsif reg3out_sig (1 downto 0) = "11" then --walla else?
+wreq13<='0'; wreq23<='0'; wreq33<='0'; wreq43<='1';
+end if; end if;
+
+if wr4='1' then
+if reg4out_sig (1 downto 0) = "00" then
+wreq14<='1'; wreq24<='0'; wreq34<='0'; wreq44<='0';
+elsif reg4out_sig (1 downto 0) = "01" then
+wreq14<='0'; wreq24<='1'; wreq34<='0'; wreq44<='0';
+elsif reg4out_sig (1 downto 0) = "10" then
+wreq14<='0'; wreq24<='0'; wreq34<='1'; wreq44<='0';
+elsif reg4out_sig (1 downto 0) = "11" then --walla else?
+wreq14<='0'; wreq24<='0'; wreq34<='0'; wreq44<='1';
+end if; end if;
+--AND WR1
+
+
+end process;
+
+
+end architecture;

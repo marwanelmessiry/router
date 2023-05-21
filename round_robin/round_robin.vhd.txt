@@ -1,0 +1,65 @@
+library ieee;
+use ieee.std_logic_1164.all;
+
+entity round_robin is
+
+  port (
+    din1 : in  std_logic_vector(7 downto 0);  -- Request signal
+    din2 : in  std_logic_vector(7 downto 0);
+    din3 : in  std_logic_vector(7 downto 0);
+    din4 : in  std_logic_vector(7 downto 0);
+    dout : out std_logic_vector(7 downto 0);  -- grant signal
+    clk : in  std_logic);                     -- system clock
+end round_robin;
+
+
+architecture arch of round_robin is
+
+type state is (s0,s1,s2,s3);       -- State declaration
+signal present_state : state := s0;
+signal next_state : state:=s0;  -- State container
+begin  -- arch
+
+  -- purpose: fixing the priority and grant signal assignment
+  -- type   : combinational
+  -- inputs : req
+  -- outputs: gnt
+  priority: process (present_state)
+  begin  -- process priority
+
+    case present_state is
+
+      when s0 =>
+          dout<=din1;
+          next_state<=s1;
+
+        when s1 =>
+          dout<=din2;
+          next_state<=s2;
+
+        when s2 =>
+          dout<=din3;
+          next_state<=s3;
+
+        when s3 =>
+          dout<=din4;
+          next_state<=s0;
+        
+    end case;
+  end process priority;
+
+
+  -- purpose: State Assignment
+  -- type   : sequential
+  -- inputs : clk, rst, present_state
+  -- outputs: next_state
+
+
+  State_assignment: process (clk)
+  begin  -- process State_assignment
+    if clk'event and clk = '1' then  -- rising clock edge
+      present_state<=next_state;
+    end if;
+  end process State_assignment;
+
+end architecture;

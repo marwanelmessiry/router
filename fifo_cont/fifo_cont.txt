@@ -1,0 +1,108 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
+
+entity fifo_cont is
+port(
+reset, rclk, wclk, r_req, w_req: in std_logic;
+w_valid, r_valid: out std_logic;
+wr_ptr, rd_ptr: out std_logic_vector (2 downto 0);
+empty, full: out std_logic
+);
+end entity;
+
+architecture behav of fifo_cont is
+
+component gray_count IS
+PORT (clk, reset, En: IN std_logic;
+count_out: OUT std_logic_vector (3 DOWNTO 0));
+END component;
+
+component gray_to_bin is
+port ( gray_in : in STD_LOGIC_VECTOR (3 downto 0);
+bin_out : out STD_LOGIC_VECTOR (3 downto 0));
+end component;
+
+signal rgray_ptr, wgray_ptr : std_logic_vector (3 downto 0);
+signal wptr, rptr: std_logic_vector (3 downto 0);
+signal w_count_en, r_count_en: std_logic;
+signal empty_flag, full_flag: std_logic;
+signal last_op, rclk_sig, reset_sig, r_count_en_sig: std_logic;
+
+
+begin
+
+rgray_count: gray_count port map (clk => rclk,
+reset => reset,
+En=> r_count_en,
+count_out=> rgray_ptr
+);
+
+wgray_count: gray_count port map (clk => wclk,
+reset => reset,
+En => w_count_en,
+count_out => wgray_ptr
+);
+
+rgray_to_bin: gray_to_bin port map (gray_in => rgray_ptr,
+bin_out => rptr);
+
+wgray_to_bin: gray_to_bin port map (gray_in => wgray_ptr,
+bin_out => wptr);
+
+
+couting: process (empty_flag, r_req) begin
+
+if r_req='1' and empty_flag='0' then --validity. then counter enable is validity.
+r_count_en<='1';
+else
+r_count_en<='0';
+end if;
+end process;
+
+process (full_flag, w_req) begin
+if w_req='1' and full_flag='0' then
+w_count_en<='1';
+else
+w_count_en<='0';
+end if;
+
+end process;
+
+full_empty: process (wptr, rptr) begin
+if wptr(2 downto 0)=rptr (2 downto 0) then
+	if wptr(3)=rptr(3) then
+	full_flag<='0'; empty_flag<='1';
+
+	else 
+	full_flag<='1'; empty_flag<='0';
+	end if;
+
+else
+full_flag<='0'; empty_flag<='0';
+end if;
+
+end process;
+
+--validity: process (full_flag, empty_flag, w_req, r_req) begin
+
+--if full_flag='0' and w_req='1' then
+--w_valid<='1';
+--else
+--w_valid<='0';
+--end if;
+
+--if empty_flag='0' and r_req='1' then
+--r_valid<='1';
+--else
+--r_valid<='0';
+--end if;
+
+--end process;
+
+empty<=empty_flag; full<= full_flag;
+w_valid<=w_count_en; r_valid<=r_count_en;
+wr_ptr<=wptr(2 downto 0); rd_ptr<=rptr(2 downto 0);
+
+end architecture;

@@ -1,0 +1,30 @@
+--LIBRARYYY
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+entity reg is
+port(data_in: in std_logic_vector (7 downto 0);
+clk, clk_en, reset: in std_logic;
+data_out: out std_logic_vector (7 downto 0)
+);
+end entity;
+
+architecture behav of reg is
+
+begin
+
+process (clk, reset) begin
+
+if reset='1' then --async?
+data_out<=(others => 'X');
+
+elsif clk='1' and clk'event then
+if clk_en='1' then
+data_out<=data_in;
+end if;
+end if;
+
+end process;
+
+end architecture;
